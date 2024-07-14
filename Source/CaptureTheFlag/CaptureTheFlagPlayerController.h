@@ -14,18 +14,18 @@ class UInputMappingContext;
 UCLASS()
 class CAPTURETHEFLAG_API ACaptureTheFlagPlayerController : public APlayerController
 {
-	GENERATED_BODY()
-	
+    GENERATED_BODY()
+    
 protected:
 
-	/** Input Mapping Context to be used for player input */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
-	UInputMappingContext* InputMappingContext;
+    /** Input Mapping Context to be used for player input */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+    UInputMappingContext* InputMappingContext;
 
-	// Begin Actor interface
+    // Begin Actor interface
 protected:
 
-	virtual void BeginPlay() override;
+    virtual void BeginPlay() override;
 
-	// End Actor interface
+    // End Actor interface
 };
