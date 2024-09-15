@@ -5,6 +5,9 @@
 
 APickup::APickup()
 {
+    PrimaryActorTick.bCanEverTick = false;
+    bReplicates = true;
+    
     SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComponent"));
     SphereComponent->SetCollisionProfileName("OverlapAll");
     SphereComponent->OnComponentBeginOverlap.AddDynamic(this, &APickup::OnBeginOverlap);
@@ -13,9 +16,6 @@ APickup::APickup()
 
     RotatingMovementComponent = CreateDefaultSubobject<URotatingMovementComponent>(TEXT("RotatingMovementComponent"));
     RotatingMovementComponent->RotationRate = FRotator(0.0f, 90.0f, 0.0f);
-    
-    bReplicates = true;
-    PrimaryActorTick.bCanEverTick = false;
 }
 
 void APickup::OnBeginOverlap(UPrimitiveComponent* Component, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Hit)

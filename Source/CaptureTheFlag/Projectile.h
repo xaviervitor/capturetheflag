@@ -13,28 +13,18 @@ UCLASS(config=Game)
 class AProjectile : public AActor
 {
     GENERATED_BODY()
-
-    /** Sphere collision component */
-    UPROPERTY(VisibleDefaultsOnly, Category=Projectile)
+private:
+    UPROPERTY(VisibleAnywhere)
     USphereComponent* SphereComponent;
 
-    /** Projectile movement component */
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(VisibleAnywhere)
     UProjectileMovementComponent* ProjectileMovement;
 
-    UPROPERTY(EditAnywhere, Replicated)
+    UPROPERTY(EditDefaultsOnly, Replicated)
     float Damage;
-
 public:
     AProjectile();
 
-    /** called when projectile hits something */
     UFUNCTION()
-    void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
-
-    /** Returns SphereComponent subobject **/
-    USphereComponent* GetSphereComponent() const { return SphereComponent; }
-    /** Returns ProjectileMovement subobject **/
-    UProjectileMovementComponent* GetProjectileMovement() const { return ProjectileMovement; }
+    void OnBeginOverlap(UPrimitiveComponent* Component, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Hit);
 };
-

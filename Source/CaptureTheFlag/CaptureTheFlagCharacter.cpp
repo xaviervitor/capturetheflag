@@ -1,5 +1,3 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
-
 #include "CaptureTheFlagCharacter.h"
 #include "Projectile.h"
 #include "Animation/AnimInstance.h"
@@ -15,21 +13,13 @@
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
-//////////////////////////////////////////////////////////////////////////
-// ACaptureTheFlagCharacter
-
 ACaptureTheFlagCharacter::ACaptureTheFlagCharacter()
 {
-    // Character doesnt have a rifle at start
-    bHasRifle = false;
-    
-    // Set size for collision capsule
     GetCapsuleComponent()->InitCapsuleSize(55.0f, 96.0f);
         
-    // Create a CameraComponent    
     FirstPersonCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
     FirstPersonCameraComponent->SetupAttachment(GetCapsuleComponent());
-    FirstPersonCameraComponent->SetRelativeLocation(FVector(-10.0f, 0.0f, 60.0f)); // Position the camera
+    FirstPersonCameraComponent->SetRelativeLocation(FVector(-10.0f, 0.0f, 60.0f));
     FirstPersonCameraComponent->bUsePawnControlRotation = true;
 
     // Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
@@ -38,7 +28,6 @@ ACaptureTheFlagCharacter::ACaptureTheFlagCharacter()
     FirstPersonMesh->SetupAttachment(FirstPersonCameraComponent);
     FirstPersonMesh->bCastDynamicShadow = false;
     FirstPersonMesh->CastShadow = false;
-    //FirstPersonMesh->SetRelativeRotation(FRotator(0.9f, -19.19f, 5.2f));
     FirstPersonMesh->SetRelativeLocation(FVector(-30.0f, 0.0f, -150.0f));
 }
 
@@ -46,13 +35,13 @@ void ACaptureTheFlagCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProper
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     
     DOREPLIFETIME_CONDITION(ACaptureTheFlagCharacter, Health, COND_OwnerOnly);
-    DOREPLIFETIME(ACaptureTheFlagCharacter, bHasRifle);
+
     DOREPLIFETIME(ACaptureTheFlagCharacter, Weapon);
+    DOREPLIFETIME(ACaptureTheFlagCharacter, Flag);
 }
 
 void ACaptureTheFlagCharacter::BeginPlay()
 {
-    // Call the base class  
     Super::BeginPlay();
 
     if (HasAuthority())
@@ -60,7 +49,6 @@ void ACaptureTheFlagCharacter::BeginPlay()
         Health = MaxHealth;
     }
 
-    // Add Input Mapping Context
     if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
     {
         if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
@@ -69,23 +57,21 @@ void ACaptureTheFlagCharacter::BeginPlay()
         }
     }
 
+    GameMode = Cast<ACaptureTheFlagGameMode>(GetWorld()->GetAuthGameMode());
 }
 
-//////////////////////////////////////////////////////////////////////////// Input
+void ACaptureTheFlagCharacter::FellOutOfWorld(const UDamageType& DmgType)
+{
+    GameMode->OnFall(GetController());
+}
 
 void ACaptureTheFlagCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
-    // Set up action bindings
     if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
     {
-        // Jumping
         EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
         EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
-
-        // Moving
         EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ACaptureTheFlagCharacter::Move);
-
-        // Looking
         EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ACaptureTheFlagCharacter::Look);
     }
 }
@@ -130,26 +116,13 @@ void ACaptureTheFlagCharacter::PlayAnimMontageMulticast_Implementation(UAnimMont
     }
 }
 
-void ACaptureTheFlagCharacter::SetHasRifle(bool bNewHasRifle)
-{
-    bHasRifle = bNewHasRifle;
-}
-
-bool ACaptureTheFlagCharacter::GetHasRifle()
-{
-    return bHasRifle;
-}
-
 void ACaptureTheFlagCharacter::EquipWeaponServer_Implementation(TSubclassOf<AWeapon> WeaponClass)
 {
-    if (GetHasRifle()) return;
+    if (HasWeapon()) return;
     if (!WeaponClass) return;
     
     UWorld* World = GetWorld();
     if (!World) return;
-
-    // switch bHasRifle so the animation blueprint can switch to another animation set
-    SetHasRifle(true);
 
     // Spawn and attach weapon
     Weapon = World->SpawnActorDeferred<AWeapon>(WeaponClass, FTransform::Identity, this, nullptr, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
@@ -157,31 +130,38 @@ void ACaptureTheFlagCharacter::EquipWeaponServer_Implementation(TSubclassOf<AWea
     
     FAttachmentTransformRules AttachmentRules(EAttachmentRule::SnapToTarget, true);
     Weapon->AttachToComponent(GetFirstPersonMesh(), AttachmentRules, FName(TEXT("GripPoint")));
-    Weapon->SetCharacter(this);
     
     // Add Weapon action bindings to the player character
     Weapon->SetupActionBindingsClient();
 }
 
-void ACaptureTheFlagCharacter::ApplyDamage(ACaptureTheFlagCharacter* KillerCharacter, float Damage)
+void ACaptureTheFlagCharacter::ApplyDamage(ACaptureTheFlagCharacter* KillerCharacter, FName BoneName, float Damage, FVector ImpulseDirection)
 {
     if (Health <= 0.0f) return;
     RemoveHealth(Damage);
 
-    if (Health > 0.0f) {
-        UE_LOG(LogTemp, Display, TEXT("%s: Health: %f"), *GetName(), GetHealth());
-        // PlaySoundAtLocationMulticast(DamageSound);
-    } else {
-        Die(KillerCharacter);
+    if (Health <= 0.0f)
+    {
+        Die(KillerCharacter, BoneName, ImpulseDirection);
     }
 }
 
-void ACaptureTheFlagCharacter::Die(ACaptureTheFlagCharacter* KillerCharacter)
+void ACaptureTheFlagCharacter::Die(ACaptureTheFlagCharacter* KillerCharacter, FName BoneName, FVector ImpulseDirection)
 {
-    UE_LOG(LogTemp, Display, TEXT("Died"));
-
-    if (Weapon) {
+    RagdollMulticast(ImpulseDirection * 30.0f, BoneName);
+    if (HasWeapon())
+    {
         Weapon->Destroy();
     }
-    // GameMode->OnDeath(GetController(), KillerCharacter->GetController());
+    GameMode->OnDeath(GetController(), KillerCharacter->GetController());
+}
+
+void ACaptureTheFlagCharacter::RagdollMulticast_Implementation(FVector Impulse, FName BoneName)
+{
+    GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    USkeletalMeshComponent* ThirdPersonMesh = GetMesh();
+    ThirdPersonMesh->SetCollisionProfileName("Ragdoll");
+    ThirdPersonMesh->SetEnableGravity(true);
+    ThirdPersonMesh->SetSimulatePhysics(true);
+    ThirdPersonMesh->AddImpulse(Impulse, BoneName, true);
 }

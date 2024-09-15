@@ -11,7 +11,18 @@
 	],
 	"settings": {
 		"typescript.tsc.autoDetect": "off",
-		"npm.autoDetect": "off"
+		"npm.autoDetect": "off",
+		"files.associations": {
+			"*.rh": "cpp",
+			"fft": "cpp",
+			"limits": "cpp",
+			"valarray": "cpp",
+			"algorithm": "cpp",
+			"chrono": "cpp",
+			"random": "cpp",
+			"utility": "cpp",
+			"xutility": "cpp"
+		}
 	},
 	"extensions": {
 		"recommendations": [

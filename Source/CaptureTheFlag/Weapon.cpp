@@ -36,6 +36,12 @@ void AWeapon::BeginPlay()
     Super::BeginPlay();    
 }
 
+void AWeapon::SetOwner(AActor* InOwner)
+{
+    Super::SetOwner(InOwner);
+    Character = Cast<ACaptureTheFlagCharacter>(InOwner);
+}
+
 void AWeapon::FireServer_Implementation()
 {
     if (!Character || !Character->GetController()) return;
@@ -49,7 +55,7 @@ void AWeapon::FireServer_Implementation()
             ProjectileTransform.SetLocation(MuzzleSceneComponent->GetComponentLocation());
             ProjectileTransform.SetRotation(PlayerController->PlayerCameraManager->GetCameraRotation().Quaternion());
             
-            AProjectile* Projectile = World->SpawnActorDeferred<AProjectile>(ProjectileClass, ProjectileTransform, Character, nullptr, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
+            AProjectile* Projectile = World->SpawnActorDeferred<AProjectile>(ProjectileClass, ProjectileTransform, this, Character, ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
             UGameplayStatics::FinishSpawningActor(Projectile, ProjectileTransform);
         }
     }
@@ -58,7 +64,8 @@ void AWeapon::FireServer_Implementation()
     Character->PlayAnimMontageMulticast(FireAnimation);
 }
 
-void AWeapon::SetupActionBindingsClient_Implementation() {
+void AWeapon::SetupActionBindingsClient_Implementation()
+{
     ACaptureTheFlagCharacter* ControllerCharacter = Cast<ACaptureTheFlagCharacter>(UGameplayStatics::GetPlayerController(this, 0)->GetPawn());
     if (Character != ControllerCharacter) return;
 

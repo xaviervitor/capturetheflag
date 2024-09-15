@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
 #include "Weapon.h"
+#include "CaptureTheFlagGameMode.h"
 
 #include "CaptureTheFlagCharacter.generated.h"
 
@@ -24,34 +25,52 @@ UCLASS(config=Game)
 class ACaptureTheFlagCharacter : public ACharacter
 {
     GENERATED_BODY()
-
-    UPROPERTY(VisibleDefaultsOnly, Category=Mesh)
+private:
+    UPROPERTY(VisibleAnywhere)
     USkeletalMeshComponent* FirstPersonMesh;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(VisibleAnywhere)
     UCameraComponent* FirstPersonCameraComponent;
 
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
+    UPROPERTY(EditAnywhere)
     UInputMappingContext* DefaultMappingContext;
 
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
+    UPROPERTY(EditAnywhere)
     UInputAction* JumpAction;
 
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Input, meta=(AllowPrivateAccess = "true"))
+    UPROPERTY(EditAnywhere)
     UInputAction* MoveAction;
     
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(EditAnywhere)
     class UInputAction* LookAction;
     
-    UPROPERTY(EditAnywhere)
+    UPROPERTY(VisibleAnywhere)
     float MaxHealth = 100.0f;
 
-    UPROPERTY(EditAnywhere, Replicated)
+    UPROPERTY(VisibleAnywhere, Replicated)
     float Health;
+
+    UPROPERTY(VisibleAnywhere)
+    ACaptureTheFlagGameMode* GameMode;
 
     UPROPERTY(Replicated)
     AWeapon* Weapon = nullptr;
 
+    UPROPERTY(Replicated)
+    AFlag* Flag = nullptr;
+protected:
+    virtual void BeginPlay();
+    virtual void FellOutOfWorld(const UDamageType& DmgType) override;
+    
+    // APawn interface
+    virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
+    // End of APawn interface
+
+    void Move(const FInputActionValue& Value);
+
+    void Look(const FInputActionValue& Value);
+
+    void Die(ACaptureTheFlagCharacter* KillerCharacter, FName BoneName, FVector ImpulseDirection);
 public:
     ACaptureTheFlagCharacter();
 
@@ -63,38 +82,35 @@ public:
 
     UFUNCTION(Server, Reliable, BlueprintCallable)
     void EquipWeaponServer(TSubclassOf<AWeapon> WeaponClass);
-protected:
-    virtual void BeginPlay();
 
-    // APawn interface
-    virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
-    // End of APawn interface
-
-    void Move(const FInputActionValue& Value);
-
-    void Look(const FInputActionValue& Value);
-
-public:
+    UFUNCTION(NetMulticast, Reliable)
+    void RagdollMulticast(FVector Impulse = FVector::ZeroVector, FName BoneName = NAME_None);
     
-    USkeletalMeshComponent* GetFirstPersonMesh() const { return FirstPersonMesh; }
+    void ApplyDamage(ACaptureTheFlagCharacter* KillerCharacter, FName BoneName, float Damage, FVector ImpulseDirection);
+
+    FORCEINLINE USkeletalMeshComponent* GetFirstPersonMesh() const { return FirstPersonMesh; }
     
-    UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Replicated)
-    bool bHasRifle;
-
-    UFUNCTION(BlueprintCallable)
-    void SetHasRifle(bool bNewHasRifle);
-
-    UFUNCTION(BlueprintCallable)
-    bool GetHasRifle();
-
-    void ApplyDamage(ACaptureTheFlagCharacter* KillerCharacter, float Damage);
-
-    void Die(ACaptureTheFlagCharacter* KillerCharacter);
+    FORCEINLINE UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
+    
+    FORCEINLINE ACaptureTheFlagGameMode* GetGameMode() const { return GameMode; }
 
     UFUNCTION(BlueprintPure)
-    FORCEINLINE float GetHealth() { return Health; }
+    FORCEINLINE bool HasWeapon() const { return (Weapon != nullptr); }
+
+    UFUNCTION(BlueprintPure)
+    FORCEINLINE AWeapon* GetWeapon() const { return Weapon; }
+
+    UFUNCTION(BlueprintPure)
+    FORCEINLINE bool HasFlag() const { return (Flag != nullptr); }
+    
+    UFUNCTION(BlueprintPure)
+    FORCEINLINE AFlag* GetFlag() const { return Flag; }
+
+    UFUNCTION(BlueprintCallable)
+    FORCEINLINE void SetFlag(AFlag* InFlag) { Flag = InFlag; }
+
+    UFUNCTION(BlueprintPure)
+    FORCEINLINE float GetHealth() const { return Health; }
     
     UFUNCTION(BlueprintCallable)
     FORCEINLINE void SetHealth(float InHealth) { Health = InHealth; }

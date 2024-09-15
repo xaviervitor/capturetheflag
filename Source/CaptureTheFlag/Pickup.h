@@ -12,17 +12,17 @@ UCLASS()
 class CAPTURETHEFLAG_API APickup : public AActor
 {
     GENERATED_BODY()
-    
-    UPROPERTY(EditAnywhere)
+private:
+    UPROPERTY(VisibleAnywhere)
     class USphereComponent* SphereComponent;
 
-    UPROPERTY(EditAnywhere)
+    UPROPERTY(VisibleAnywhere)
     class URotatingMovementComponent* RotatingMovementComponent;
 
-    UPROPERTY(EditAnywhere)
+    UPROPERTY(VisibleAnywhere)
     class USoundBase* PickupSound;
 
-    UPROPERTY(EditAnywhere)
+    UPROPERTY(EditDefaultsOnly)
     float ReactivationTime = 1.0f;
 public:
     APickup();

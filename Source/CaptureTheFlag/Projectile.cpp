@@ -4,6 +4,7 @@
 
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Components/SphereComponent.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 #include "CaptureTheFlagCharacter.h"
@@ -13,32 +14,26 @@ AProjectile::AProjectile()
     bReplicates = true;
     SetReplicateMovement(true);
     
-    // Use a sphere as a simple collision representation
-    SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComp"));
+    SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComponent"));
     SphereComponent->InitSphereRadius(5.0f);
     SphereComponent->BodyInstance.SetCollisionProfileName("Projectile");
-    SphereComponent->OnComponentHit.AddDynamic(this, &AProjectile::OnHit);        // set up a notification for when this component hits something blocking
-
-    // Players can't walk on it
+    SphereComponent->OnComponentBeginOverlap.AddDynamic(this, &AProjectile::OnBeginOverlap);
     SphereComponent->SetWalkableSlopeOverride(FWalkableSlopeOverride(WalkableSlope_Unwalkable, 0.0f));
     SphereComponent->CanCharacterStepUpOn = ECB_No;
-
-    // Firing player is not blocked
-    SphereComponent->IgnoreActorWhenMoving(GetOwner(), true);
-
-    // Set as root component
     RootComponent = SphereComponent;
 
-    // Use a ProjectileMovementComponent to govern this projectile's movement
-    ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileComp"));
+    // Firing player is not blocked
+    SphereComponent->IgnoreActorWhenMoving(GetInstigator(), true);
+
+    ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
     ProjectileMovement->UpdatedComponent = SphereComponent;
-    ProjectileMovement->InitialSpeed = 3000.0f;
-    ProjectileMovement->MaxSpeed = 3000.0f;
+    ProjectileMovement->InitialSpeed = 6000.0f;
+    ProjectileMovement->MaxSpeed = 6000.0f;
     ProjectileMovement->bRotationFollowsVelocity = true;
     ProjectileMovement->bShouldBounce = true;
-
-    // Die after 3 seconds by default
-    InitialLifeSpan = 3.0f;
+    ProjectileMovement->ProjectileGravityScale = 0.0f;
+    
+    InitialLifeSpan = 60.0f;
 }
 
 void AProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
@@ -47,17 +42,18 @@ void AProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
     DOREPLIFETIME(AProjectile, Damage);
 }
 
-void AProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AProjectile::OnBeginOverlap(UPrimitiveComponent* Component, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Hit)
 {
     if (!HasAuthority()) return;
 
-    ACaptureTheFlagCharacter* OtherCharacter = Cast<ACaptureTheFlagCharacter>(OtherActor);
-    ACaptureTheFlagCharacter* Character = Cast<ACaptureTheFlagCharacter>(GetOwner());
+    ACaptureTheFlagCharacter* ShotCharacter = Cast<ACaptureTheFlagCharacter>(OtherActor);
+    ACaptureTheFlagCharacter* ShooterCharacter = Cast<ACaptureTheFlagCharacter>(GetInstigator());
 
-    if (OtherCharacter && OtherActor != this)
-    {
-        Character->RemoveHealth(Damage);
-        OtherCharacter->ApplyDamage(Character, Damage);
-        Destroy();
+    if (ShotCharacter)
+    { 
+        if (ShotCharacter == ShooterCharacter) return;
+        FVector ImpulseDirection = UKismetMathLibrary::GetDirectionUnitVector(GetActorLocation(), ShotCharacter->GetActorLocation());
+        ShotCharacter->ApplyDamage(ShooterCharacter, Hit.BoneName, Damage, ImpulseDirection);
     }
+    Destroy();
 }
